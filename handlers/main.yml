@@ -2,4 +2,4 @@
 # handlers file for ipxe
 
 - name: reload nginx
-  service: name=nginx state=reload
+  service: name=nginx state=reloaded
