@@ -1,0 +1,15 @@
+#!ipxe
+dhcp
+# Set source URI
+set mirror {{ ipxe_fedora_mirror }}
+
+# Detect CPU architecture and calculate repository URI
+cpuid --ext 29 && set arch x86_64 || set arch i386
+set repo ${mirror}
+
+# Start installer
+kernel ${repo}/images/pxeboot/vmlinuz initrd=initrd.img inst.repo=${repo} inst.ks={{ ipxe_ipxe_url }}
+#{%- if ipxe_proxy is defined %} proxy={{ ipxe_proxy }}{{ '\n' }}{% endif %}
+
+initrd ${repo}/images/pxeboot/initrd.img
+boot

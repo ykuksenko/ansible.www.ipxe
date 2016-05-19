@@ -1,0 +1,13 @@
+---
+ ipxe_proxy: http://proxy.domain.com:3128
+ ipxe_nginx_port: 80
+ ipxe_distro_path: /mnt/distros
+ ipxe_disk: sda
+ ipxe_nic: eth0
+ ipxe_hostname: somename
+ ipxe_username: admin_user
+ ipxe_password: some_salted_password_hash
+ ipxe_fedora_mirror: 'http://local/distros/fedora/23/server'
+ ipxe_ipxe_url: "http://{{ ansible_fqdn }}:{{ ipxe_nginx_port }}/anaconda-ks.cfg"
+ ipxe_ssh_public_key: "ssh-rsa AAAA_known_hosts_sample_file== some_username"
+ ipxe_server_name: 'some.hostname.com'

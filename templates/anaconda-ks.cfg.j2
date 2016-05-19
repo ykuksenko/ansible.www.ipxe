@@ -1,0 +1,74 @@
+#version=DEVEL
+# System authorization information
+auth --enableshadow --passalgo=sha512
+# Use network installation
+url --url="http://mirrors.kernel.org/fedora/releases/23/Everything/x86_64/os/" {%- if ipxe_proxy is defined %} --proxy={{ ipxe_proxy }}{{ '\n' }}{% endif %}
+repo --name="updates" --baseurl=http://mirrors.kernel.org/fedora/updates/23/x86_64/ {%- if ipxe_proxy is defined %} --proxy={{ ipxe_proxy }}{{ '\n' }}{% endif %}
+# installer type (graphical/text)
+text
+# Run the Setup Agent on first boot
+firstboot --enable
+ignoredisk --only-use={{ ipxe_disk }}
+# Keyboard layouts
+keyboard --vckeymap=us --xlayouts='us'
+# System language
+lang en_US.UTF-8
+
+# Network information
+network  --bootproto=dhcp --device={{ ipxe_nic }} --ipv6=auto --activate
+network  --hostname={{ ipxe_hostname }}
+#Root password
+rootpw --lock
+# System timezone
+timezone America/Chicago --isUtc
+user --groups=wheel --name={{ ipxe_username }} --password={{ ipxe_password }} --iscrypted
+# System bootloader configuration
+bootloader --location=mbr --boot-drive={{ ipxe_disk }}
+autopart --type=btrfs
+# Partition clearing information
+clearpart --all --initlabel --drives={{ ipxe_disk }}
+
+%packages
+@^minimal-environment
+
+#python 2 packages needed for controlling the host with ansible
+python2
+python2-dnf
+libselinux-python
+
+%end
+
+%addon com_redhat_kdump --disable --reserve-mb='128'
+
+%end
+
+%anaconda
+pwpolicy root --minlen=0 --minquality=1 --notstrict --nochanges --emptyok
+pwpolicy user --minlen=0 --minquality=1 --notstrict --nochanges --emptyok
+pwpolicy luks --minlen=0 --minquality=1 --notstrict --nochanges --emptyok
+%end
+
+%post
+#create .ssh folder for our user
+mkdir /home/{{ ipxe_username }}/.ssh
+
+cat > /home/{{ ipxe_username }}/.ssh/authorized_keys << EOF_authorized_keys
+{{ ipxe_ssh_public_key }}
+EOF_authorized_keys
+
+chown {{ ipxe_username }}:{{ ipxe_username }} -R /home/{{ ipxe_username }}/.ssh/
+chmod 0700 -R /home/{{ ipxe_username }}/.ssh/
+
+cat > /etc/sudoers.d/ansible << EOF_sudoer
+{{ ipxe_username }} ALL=(ALL) NOPASSWD:ALL
+EOF_sudoer
+
+echo -e "\\S\nKernel \\\\r on an \\m (\\l)\nSystem imaged on $(date)\n" > /etc/issue
+
+{%- if ipxe_proxy is defined %}{{ '\n' }}
+echo "proxy={{ ipxe_proxy }}" >> /etc/dnf/dnf.conf{{ '\n' }}
+{%- endif %}
+
+%end
+
+reboot

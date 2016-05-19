@@ -1,0 +1,56 @@
+---
+  #required for syncing the fedora repo
+- name: install rsync
+  dnf: name=rsync state=latest
+
+- name: ensure default site is absent
+  file: path=/etc/nginx/conf.d/default.conf state=absent
+  notify:
+   - reload nginx
+
+- name: configure nginx virtual host
+  template: src=ipxe.conf.j2 dest=/etc/nginx/conf.d/ipxe.conf mode=0644 owner=root group=root
+  notify:
+   - reload nginx
+
+- name: configure ipxe share
+  file: path=/usr/share/nginx/ipxe state=directory mode=0755
+  notify:
+   - reload nginx
+
+- name: install ipxe script
+  template: src=index.html.j2 dest=/usr/share/nginx/ipxe/index.html
+  notify:
+   - reload nginx
+
+- name: ensure distro path exists
+  file: path={{ ipxe_distro_path }} mode=0755 owner=root group=root recurse=yes state=directory
+
+- name: symlink distro folders
+  file: path=/usr/share/nginx/ipxe/distros mode=0755 group=root owner=root state=link src="{{ ipxe_distro_path }}/"
+
+- name: precreate destination folders
+  file: path={{ item }} mode=0755 group=root owner=root state=directory 
+  with_items:
+    - "{{ ipxe_distro_path }}/fedora/23/server"
+
+- name: synchronize fedora 23 distribution
+  shell: rsync -rltDv rsync://mirrors.kernel.org/fedora/releases/23/Server/x86_64/os/ {{ ipxe_distro_path }}/fedora/23/server
+  delegate_to: "{{ ansible_default_ipv4.address }}"
+
+- name: install kickstart file
+  template: src=anaconda-ks.cfg.j2 dest=/usr/share/nginx/ipxe/anaconda-ks.cfg mode=0755 group=root owner=root
+  notify:
+   - reload nginx
+
+- name: "set the firewall on Fedora 23 to open port {{ ipxe_nginx_port }}"
+  firewalld: port="{{ ipxe_nginx_port }}/tcp" state=enabled immediate=yes permanent=yes
+
+#ensure handler run before we test the play
+- meta: flush_handlers
+
+- name: ensure nginx is running
+  service: name=nginx state=running enabled=yes
+
+- name: ensure nginx port is listening
+  wait_for: port="{{ ipxe_nginx_port }}" state=started
